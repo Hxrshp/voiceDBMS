@@ -66,8 +66,34 @@ def fallback_generate_sql(query):
                         cols_list.append(f'"{name}" TEXT')
                 return f'CREATE TABLE "{table_name}" (' + ', '.join(cols_list) + ');'
     
+    # 0.5 ALTER TABLE (DDL)
+    if 'add column' in query or 'alter table' in query:
+        match = re.search(r'\badd\s+column\s+(\w+)\s+(?:to|in|into)\s+(?:table\s+)?(\w+)\b', query)
+        if match:
+            col_name = match.group(1).strip()
+            table_name = match.group(2).strip()
+            col_type = 'TEXT'
+            if 'id' in col_name:
+                col_type = 'INTEGER'
+            elif 'price' in col_name or 'amount' in col_name:
+                col_type = 'REAL'
+            return f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type};'
+
+    # 0.6 DROP TABLE (DDL)
+    if 'drop' in query and 'table' in query:
+        table_name = None
+        simple_match = re.search(r'\btable\s+(\w+)\b', query)
+        if simple_match:
+            table_name = simple_match.group(1).strip()
+        else:
+            before_match = re.search(r'\b(\w+)\s+table\b', query)
+            if before_match and before_match.group(1).strip() not in ['drop']:
+                table_name = before_match.group(1).strip()
+        if table_name:
+            return f'DROP TABLE "{table_name}";'
+
     # 1. DELETE
-    if any(word in query for word in ['delete', 'remove', 'drop', 'discard']):
+    if any(word in query for word in ['delete', 'remove', 'discard']):
         id_match = re.search(r'\b(?:id|customer|number|no\.?)\s*(?:is|=)?\s*(\d+)', query)
         if id_match:
             id_val = id_match.group(1).strip()
@@ -75,23 +101,27 @@ def fallback_generate_sql(query):
             
     # 2. UPDATE
     if any(word in query for word in ['update', 'change', 'modify', 'set', 'rename']):
+        name_update_match = re.search(r'\b(?:change|update|modify)\s+(?:the\s+)?(city|name|location)\s+(?:of|for)\s+([\w\s.-]+?)\s+(?:to|as)\s+([\w\s.-]+?)(?:\s|$)', query)
+        if name_update_match:
+            field = name_update_match.group(1).strip()
+            if field == 'location':
+                field = 'city'
+            target_name = name_update_match.group(2).strip().title()
+            new_val = name_update_match.group(3).strip().title()
+            return f"UPDATE customers SET {field} = '{new_val}' WHERE name = '{target_name}';"
+
         field = 'city' if 'city' in query or 'location' in query else 'name'
         value_match = re.search(r'\b(?:to|as)\s+([\w\s.-]+?)(?:\s+(?:where|for|of|customer)\b|$)', query)
         if value_match:
             new_val = value_match.group(1).strip().title()
-            
-            # Check for ID first
             id_match = re.search(r'\b(?:id|customer|number|no\.?)\s*(?:is|=)?\s*(\d+)', query)
             if id_match:
                 id_val = id_match.group(1).strip()
                 return f"UPDATE customers SET {field} = '{new_val}' WHERE id = {id_val};"
             
-            # Check for name target
-            name_match = re.search(r'\b(?:of|for|of\s+customer|for\s+customer)\s+([\w\s.-]+?)\s+(?:to|as)\b', query)
-            if name_match:
-                target_name = name_match.group(1).strip().title()
-                if target_name.lower().startswith("customer "):
-                    target_name = target_name[9:].strip()
+            name_search_match = re.search(r'\b(?:for|of|customer)\s+([\w\s.-]+)$', query)
+            if name_search_match:
+                target_name = name_search_match.group(1).strip().title()
                 return f"UPDATE customers SET {field} = '{new_val}' WHERE name = '{target_name}';"
 
     # 3. INSERT / ADD
@@ -110,15 +140,35 @@ def fallback_generate_sql(query):
                 city = city[3:].strip()
             return f"INSERT INTO customers (name, city) VALUES ('{name}', '{city}');"
 
-    # 4. SELECT BY CITY
+    # 4. SELECT BY CITY OR FILTER
+    name_filter = re.search(r'\b(?:orders|product|products)\s+(?:placed\s+)?(?:by|for|of)\s+(\w+)\b', query)
+    if name_filter:
+        name_val = name_filter.group(1).strip().title()
+        if name_val.lower() not in ['making', 'adding', 'creating', 'updating', 'deleting', 'tracking', 'each', 'all', 'any']:
+            return f"SELECT c.name, o.product, o.price FROM orders o JOIN customers c ON o.customer_id = c.id WHERE c.name = '{name_val}';"
+
+    target_table = "customers"
+    if any(word in query for word in ["order", "product", "price", "cost"]):
+        target_table = "orders"
+        
+    num_match = re.search(r'\b(\d+)\b', query)
+    if num_match and any(w in query for w in ["price", "amount", "cost"]):
+        val = num_match.group(1).strip()
+        op = "="
+        if any(word in query for word in ["more", "greater", "above", "at least", ">"]):
+            op = ">="
+        elif any(word in query for word in ["less", "below", "under", "<"]):
+            op = "<="
+        return f"SELECT * FROM {target_table} WHERE price {op} {val};"
+
     city_filter_match = re.search(r'\b(?:in|from|living\s+in|located\s+in|lives\s+in|city\s+(?:is|of))\s+([\w\s.-]+)', query)
     if city_filter_match:
         city = city_filter_match.group(1).replace('?', '').replace('.', '').strip().title()
-        if city and city not in ['all', 'customers', 'customer']:
-            return f"SELECT * FROM customers WHERE city = '{city}';"
+        if city and city not in ['all', 'customers', 'customer', 'order', 'orders']:
+            return f"SELECT * FROM {target_table} WHERE city = '{city}';"
 
     # 5. SELECT ALL (DEFAULT FALLBACK)
-    return "SELECT * FROM customers;"
+    return f"SELECT * FROM {target_table};"
 
 def generate_sql(user_query):
     # Try reading the schema
