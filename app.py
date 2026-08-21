@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
@@ -8,6 +9,39 @@ load_dotenv()
 
 app = Flask(__name__, template_folder="templates")
 CORS(app)
+
+# Auto-initialize database on startup if it's missing
+if not os.path.exists("sample.db"):
+    try:
+        conn = sqlite3.connect("sample.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS customers(
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            city TEXT
+        )
+        """)
+        cursor.execute("INSERT INTO customers(name,city) VALUES('Rahul','Hyderabad')")
+        cursor.execute("INSERT INTO customers(name,city) VALUES('Amit','Delhi')")
+        cursor.execute("INSERT INTO customers(name,city) VALUES('Sita','Hyderabad')")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS orders(
+            id INTEGER PRIMARY KEY,
+            customer_id INTEGER,
+            product TEXT,
+            price REAL,
+            FOREIGN KEY(customer_id) REFERENCES customers(id)
+        )
+        """)
+        cursor.execute("INSERT INTO orders(customer_id, product, price) VALUES(1, 'Laptop', 1200.00)")
+        cursor.execute("INSERT INTO orders(customer_id, product, price) VALUES(1, 'Mouse', 25.00)")
+        cursor.execute("INSERT INTO orders(customer_id, product, price) VALUES(3, 'Phone', 800.00)")
+        conn.commit()
+        conn.close()
+        print("Database auto-initialized on startup.")
+    except Exception as e:
+        print(f"Error auto-initializing database: {e}")
 
 def reset_db():
     conn = sqlite3.connect("sample.db")
