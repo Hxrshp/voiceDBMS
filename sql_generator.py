@@ -17,6 +17,14 @@ def clean_sql(sql):
     # If the LLM returned "Generated SQL: SELECT ...", strip the prefix
     if sql.lower().startswith("generated sql:"):
         sql = sql[14:].strip()
+        
+    # Remove single-line SQL comments (starting with --)
+    clean_lines = []
+    for line in sql.splitlines():
+        line_clean = re.sub(r'--.*$', '', line).strip()
+        if line_clean:
+            clean_lines.append(line_clean)
+    sql = " ".join(clean_lines).strip()
     return sql
 
 def fallback_generate_sql(query):
