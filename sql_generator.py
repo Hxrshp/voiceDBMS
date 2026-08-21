@@ -138,6 +138,23 @@ def fallback_generate_sql(query):
                 target_name = name_search_match.group(1).strip().title()
                 return f"UPDATE customers SET {field} = '{new_val}' WHERE name = '{target_name}';"
 
+    # 2.5 INSERT ORDER (DML fallback)
+    if 'order' in query and any(w in query for w in ['add', 'insert', 'create', 'new']):
+        cust_match = re.search(r'\b(?:customer|id|for)\s+(\d+)\b', query)
+        prod_match = re.search(r'\b(?:of|product|item)\s+(\w+)\b', query)
+        price_match = re.search(r'\b(?:price|cost|amount|for)\s+(\d+)\b', query)
+        
+        cust_id = cust_match.group(1) if cust_match else "1"
+        product = prod_match.group(1).title() if prod_match else "Product"
+        price_val = price_match.group(1) if price_match else "0.0"
+        
+        # If the price match accidentally grabbed customer id, fix it
+        if price_match and cust_match and price_match.group(1) == cust_match.group(1):
+            all_nums = re.findall(r'\b\d+\b', query)
+            if len(all_nums) >= 2:
+                price_val = all_nums[1]
+        return f"INSERT INTO orders (customer_id, product, price) VALUES ({cust_id}, '{product}', {price_val});"
+
     # 3. INSERT / ADD
     if any(word in query for word in ['add', 'insert', 'create', 'new', 'register', 'person']):
         city_match = re.search(r'\b(city\s+is|with\s+city|located\s+in|lives\s+in|location\s+of|location\s+is|place\s+is|from|in|city|location|place)\s+([\w\s.-]+)$', query)

@@ -73,6 +73,11 @@ class VoiceDBMSTestCase(unittest.TestCase):
             fallback_generate_sql("I want to create another table named order with id as primary key , coustmer_id, price, product"),
             'CREATE TABLE "order" ("id" INTEGER PRIMARY KEY, "coustmer_id" INTEGER, "price" REAL, "product" TEXT);'
         )
+        # Test DML INSERT ORDER
+        self.assertEqual(
+            fallback_generate_sql("add order for customer 1 of Laptop price 1200"),
+            "INSERT INTO orders (customer_id, product, price) VALUES (1, 'Laptop', 1200);"
+        )
 
     def test_api_reset(self):
         response = self.client.post('/api/reset')
