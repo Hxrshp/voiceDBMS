@@ -1,0 +1,12 @@
+Table: customers
+Columns:
+  id INTEGER PRIMARY KEY
+  name TEXT
+  city TEXT
+
+Table: orders
+Columns:
+  id INTEGER PRIMARY KEY
+  customer_id INTEGER
+  product TEXT
+  price REAL

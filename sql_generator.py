@@ -1,0 +1,185 @@
+import os
+import re
+import requests
+
+def clean_sql(sql):
+    sql = sql.strip()
+    if sql.startswith("```"):
+        lines = sql.splitlines()
+        if len(lines) >= 2:
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            sql = "\n".join(lines).strip()
+    # Strip any single backticks or leading/trailing comments/whitespace
+    sql = sql.strip("`").strip()
+    # If the LLM returned "Generated SQL: SELECT ...", strip the prefix
+    if sql.lower().startswith("generated sql:"):
+        sql = sql[14:].strip()
+    return sql
+
+def fallback_generate_sql(query):
+    query = query.lower().strip()
+    
+    # 0. CREATE TABLE (DDL)
+    if 'create' in query and 'table' in query:
+        table_name = None
+        named_match = re.search(r'\btable\s+named\s+(\w+)\b', query)
+        if named_match:
+            table_name = named_match.group(1).strip()
+        else:
+            before_match = re.search(r'\b(\w+)\s+table\b', query)
+            if before_match and before_match.group(1).strip() not in ['create', 'a', 'an', 'another', 'new']:
+                table_name = before_match.group(1).strip()
+            else:
+                simple_match = re.search(r'\btable\s+(\w+)\b', query)
+                if simple_match:
+                    candidate = simple_match.group(1).strip()
+                    if candidate != 'named':
+                        table_name = candidate
+                    
+        if table_name:
+            columns_part = re.search(r'\b(?:with|having|columns|containing)\s+(.+)$', query)
+            if columns_part:
+                cols_text = columns_part.group(1).strip()
+                cols_list = []
+                for col in cols_text.split(','):
+                    col = col.strip()
+                    if not col:
+                        continue
+                    if 'primary key' in col:
+                        pk_name = re.search(r'\b(\w+)\b', col)
+                        pk = pk_name.group(1) if pk_name else 'id'
+                        cols_list.append(f'"{pk}" INTEGER PRIMARY KEY')
+                    elif 'price' in col or 'amount' in col:
+                        col_clean = re.search(r'\b(\w+)\b', col)
+                        name = col_clean.group(1) if col_clean else 'price'
+                        cols_list.append(f'"{name}" REAL')
+                    elif 'id' in col:
+                        col_clean = re.search(r'\b(\w+)\b', col)
+                        name = col_clean.group(1) if col_clean else 'id'
+                        cols_list.append(f'"{name}" INTEGER')
+                    else:
+                        col_clean = re.search(r'\b(\w+)\b', col)
+                        name = col_clean.group(1) if col_clean else col
+                        cols_list.append(f'"{name}" TEXT')
+                return f'CREATE TABLE "{table_name}" (' + ', '.join(cols_list) + ');'
+    
+    # 1. DELETE
+    if any(word in query for word in ['delete', 'remove', 'drop', 'discard']):
+        id_match = re.search(r'\b(?:id|customer|number|no\.?)\s*(?:is|=)?\s*(\d+)', query)
+        if id_match:
+            id_val = id_match.group(1).strip()
+            return f"DELETE FROM customers WHERE id = {id_val};"
+            
+    # 2. UPDATE
+    if any(word in query for word in ['update', 'change', 'modify', 'set', 'rename']):
+        field = 'city' if 'city' in query or 'location' in query else 'name'
+        value_match = re.search(r'\b(?:to|as)\s+([\w\s.-]+?)(?:\s+(?:where|for|of|customer)\b|$)', query)
+        if value_match:
+            new_val = value_match.group(1).strip().title()
+            
+            # Check for ID first
+            id_match = re.search(r'\b(?:id|customer|number|no\.?)\s*(?:is|=)?\s*(\d+)', query)
+            if id_match:
+                id_val = id_match.group(1).strip()
+                return f"UPDATE customers SET {field} = '{new_val}' WHERE id = {id_val};"
+            
+            # Check for name target
+            name_match = re.search(r'\b(?:of|for|of\s+customer|for\s+customer)\s+([\w\s.-]+?)\s+(?:to|as)\b', query)
+            if name_match:
+                target_name = name_match.group(1).strip().title()
+                if target_name.lower().startswith("customer "):
+                    target_name = target_name[9:].strip()
+                return f"UPDATE customers SET {field} = '{new_val}' WHERE name = '{target_name}';"
+
+    # 3. INSERT / ADD
+    if any(word in query for word in ['add', 'insert', 'create', 'new', 'register', 'person']):
+        city_match = re.search(r'\b(city\s+is|with\s+city|located\s+in|lives\s+in|location\s+of|location\s+is|place\s+is|from|in|city|location|place)\s+([\w\s.-]+)$', query)
+        name_match = re.search(r'\b(?:customer|person|named|name\s+is)\s+([\w\s.-]+?)\s+(?:and\s+)?(?:city\s+is|with\s+city|located\s+in|lives\s+in|location\s+of|location\s+is|place\s+is|from|in|city|location|place)\b', query)
+        if name_match and city_match:
+            name = name_match.group(1).strip().title()
+            city = city_match.group(2).strip().title()
+            if name.lower().startswith("named "):
+                name = name[6:].strip()
+            for suffix in [" with", " and", " for"]:
+                if name.lower().endswith(suffix):
+                    name = name[:-len(suffix)].strip()
+            if city.lower().startswith("is "):
+                city = city[3:].strip()
+            return f"INSERT INTO customers (name, city) VALUES ('{name}', '{city}');"
+
+    # 4. SELECT BY CITY
+    city_filter_match = re.search(r'\b(?:in|from|living\s+in|located\s+in|lives\s+in|city\s+(?:is|of))\s+([\w\s.-]+)', query)
+    if city_filter_match:
+        city = city_filter_match.group(1).replace('?', '').replace('.', '').strip().title()
+        if city and city not in ['all', 'customers', 'customer']:
+            return f"SELECT * FROM customers WHERE city = '{city}';"
+
+    # 5. SELECT ALL (DEFAULT FALLBACK)
+    return "SELECT * FROM customers;"
+
+def generate_sql(user_query):
+    # Try reading the schema
+    try:
+        with open("schema.txt", "r") as f:
+            schema = f.read()
+    except Exception:
+        schema = "Table: customers\nColumns:\nid INTEGER\nname TEXT\ncity TEXT"
+
+    prompt = f"""You convert natural language into SQL.
+
+Database schema:
+{schema}
+
+Guidelines:
+- Return ONLY the raw SQL query. Do not add explanations or formatting beyond the SQL itself.
+- Extract clean values for name and city. For example, if user says "city andhrapradesh", the city value in SQL should be "Andhrapradesh", not "city andhrapradesh". Do not include label words like "city", "name", or "customer" in the SQL data values.
+- Ensure proper string escaping.
+
+User request: {user_query}"""
+
+    # 1. Try Gemini API if key is present
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if api_key:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [{
+                    "parts": [{
+                        "text": prompt
+                    }]
+                }]
+            }
+            response = requests.post(url, json=payload, headers=headers, timeout=30.0)
+            if response.status_code == 200:
+                data = response.json()
+                sql = data["candidates"][0]["content"]["parts"][0]["text"]
+                if sql:
+                    return clean_sql(sql)
+        except Exception as e:
+            print(f"Gemini API failed: {e}. Falling back...")
+
+    # 2. Try Local Ollama (llama3)
+    try:
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "llama3",
+                "prompt": prompt,
+                "stream": False
+            },
+            timeout=2.0
+        )
+        if response.status_code == 200:
+            data = response.json()
+            sql = data.get("response", "").strip()
+            if sql:
+                return clean_sql(sql)
+    except Exception as e:
+        print(f"Local Ollama failed or not running: {e}. Using fallback parser...")
+
+    # 3. Use local rule-based fallback parser
+    return fallback_generate_sql(user_query)

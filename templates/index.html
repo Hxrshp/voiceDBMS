@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Database Assistant - Query in Plain English</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #080c14;
+            --card-bg: rgba(17, 24, 39, 0.75);
+            --card-border: rgba(255, 255, 255, 0.06);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.35);
+            --accent: #a855f7;
+            --accent-glow: rgba(168, 85, 247, 0.3);
+            --success: #10b981;
+            --error: #ef4444;
+            --table-header: rgba(31, 41, 55, 0.6);
+            --table-row-even: rgba(31, 41, 55, 0.2);
+            --table-row-hover: rgba(99, 102, 241, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 2.5rem 1rem;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 5% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 95% 85%, rgba(168, 85, 247, 0.12) 0%, transparent 45%);
+            background-attachment: fixed;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.75rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 50%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.03em;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.15rem;
+            font-weight: 400;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 850px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 28px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 2.25rem;
+            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.6);
+            transition: all 0.3s ease;
+        }
+
+        /* Voice Assistant Panel */
+        .voice-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 1.75rem;
+        }
+
+        .status-text {
+            font-size: 1.15rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            letter-spacing: -0.01em;
+            transition: color 0.3s ease;
+        }
+
+        .status-text.active {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Voice Mic Controls */
+        .mic-btn-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mic-btn {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            border: none;
+            border-radius: 50%;
+            width: 96px;
+            height: 96px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 2;
+            outline: none;
+        }
+
+        .mic-btn:hover {
+            transform: scale(1.06);
+            box-shadow: 0 12px 35px rgba(99, 102, 241, 0.55);
+        }
+
+        .mic-btn:active {
+            transform: scale(0.96);
+        }
+
+        .mic-btn svg {
+            width: 40px;
+            height: 40px;
+            fill: currentColor;
+        }
+
+        /* Listening Ripple Effect */
+        .mic-btn-container.listening .mic-btn {
+            background: linear-gradient(135deg, #ef4444 0%, #f43f5e 100%);
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+            animation: pulse-red 1.5s infinite;
+        }
+
+        .mic-glow-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            opacity: 0;
+            transform: scale(0.85);
+            z-index: 1;
+            transition: all 0.3s ease;
+        }
+
+        .mic-btn-container.listening .mic-glow-ring {
+            animation: ripple 1.6s infinite;
+            border-color: #ef4444;
+        }
+
+        @keyframes pulse-red {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes ripple {
+            0% {
+                opacity: 0.85;
+                transform: scale(0.85);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(1.45);
+            }
+        }
+
+        /* Waveform Animation */
+        .sound-wave {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            height: 36px;
+        }
+
+        .mic-btn-container.listening ~ .sound-wave {
+            display: flex;
+        }
+
+        .wave-bar {
+            width: 5px;
+            height: 8px;
+            background: linear-gradient(to top, var(--primary), var(--accent));
+            border-radius: 3px;
+            animation: jump 1s ease-in-out infinite alternate;
+        }
+
+        .wave-bar:nth-child(2) { animation-delay: 0.15s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.3s; height: 18px; }
+        .wave-bar:nth-child(4) { animation-delay: 0.45s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.6s; }
+
+        @keyframes jump {
+            0% { transform: scaleY(1); height: 8px; }
+            100% { transform: scaleY(3.5); height: 15px; }
+        }
+
+        /* Transcription & Confirmation Display */
+        .transcript-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+            padding: 1.5rem 2rem;
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: #e5e7eb;
+            max-width: 650px;
+            display: none;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+            line-height: 1.4;
+            width: 100%;
+        }
+
+        .transcript-box span {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            display: block;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        .transcript-box textarea {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            color: #e5e7eb;
+            padding: 0.75rem 1rem;
+            font-family: inherit;
+            font-size: 1.2rem;
+            font-weight: 500;
+            resize: none;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+
+        .transcript-box textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .transcript-prompt {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin: 1rem 0 0.5rem 0;
+            font-weight: 600;
+        }
+
+        .confirm-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            border: none;
+            color: white;
+            padding: 0.6rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 12px var(--primary-glow);
+            outline: none;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px var(--primary-glow);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.97);
+        }
+
+        /* Controls row */
+        .controls-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            width: 100%;
+            border-top: 1px solid var(--card-border);
+            padding-top: 1.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--card-border);
+            padding: 0.55rem 1.1rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.90rem;
+        }
+
+        .btn-secondary:hover {
+            color: var(--text-main);
+            border-color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Suggestions & History chips */
+        .suggestions {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .suggestions h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text-main);
+            letter-spacing: -0.01em;
+        }
+
+        .suggestion-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .suggestion-chip {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            padding: 0.65rem 1.25rem;
+            border-radius: 14px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .suggestion-chip:hover {
+            background: rgba(99, 102, 241, 0.08);
+            border-color: rgba(99, 102, 241, 0.25);
+            color: var(--text-main);
+            transform: translateY(-1.5px);
+        }
+
+        /* Query Results display */
+        .results-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .results-section h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        /* Technical Details dropdown (clean accordian) */
+        .tech-details {
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+        .tech-summary {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .tech-summary:hover {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-main);
+        }
+
+        .tech-content {
+            display: none;
+            padding: 1.25rem;
+            border-top: 1px solid var(--card-border);
+            background: #04070d;
+        }
+
+        .tech-details.open .tech-content {
+            display: block;
+        }
+
+        .sql-code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            color: #818cf8;
+            white-space: pre-wrap;
+        }
+
+        /* Elegant Table styling */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 16px;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        th {
+            background-color: var(--table-header);
+            padding: 1.1rem 1.25rem;
+            font-weight: 600;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--card-border);
+            letter-spacing: 0.02em;
+        }
+
+        td {
+            padding: 1.1rem 1.25rem;
+            border-bottom: 1px solid var(--card-border);
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        tr:nth-child(even) td {
+            background-color: var(--table-row-even);
+        }
+
+        tr:hover td {
+            background-color: var(--table-row-hover);
+            color: var(--text-main);
+        }
+
+        .empty-table-state {
+            padding: 3rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 1rem;
+            font-style: italic;
+        }
+
+        /* Floating Toasts */
+        .notification {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            border-radius: 14px;
+            background: #111827;
+            color: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transform: translateY(180%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1000;
+            border: 1px solid var(--card-border);
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .notification.show {
+            transform: translateY(0);
+        }
+
+        .notification.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .notification.error {
+            border-left: 4px solid var(--error);
+        }
+
+        @media (max-width: 640px) {
+            h1 { font-size: 2.1rem; }
+            .controls-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .btn-secondary {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Voice Database Assistant</h1>
+        <p>A conversational assistant that reads, adds, and manages database records using plain spoken English. Zero query language required.</p>
+    </header>
+
+    <div class="container">
+        
+        <!-- Interactive Assistant Panel -->
+        <div class="glass-card voice-section">
+            <div class="status-text" id="status-label">Tap the microphone to ask a question</div>
+            
+            <div class="mic-btn-container" id="mic-container">
+                <div class="mic-glow-ring"></div>
+                <button class="mic-btn" id="mic-button" title="Start Voice Command">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="sound-wave">
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+            </div>
+
+            <div class="transcript-box" id="transcript-display">
+                <span>You Spoke (Click below to edit)</span>
+                <textarea id="transcript-text" rows="2"></textarea>
+                <div class="transcript-prompt">Did I get that right?</div>
+                <div class="confirm-actions">
+                    <button class="btn-primary" id="confirm-yes-btn">Yes, Execute</button>
+                    <button class="btn-secondary" id="confirm-no-btn">No, Cancel</button>
+                </div>
+            </div>
+
+            <div class="controls-row">
+                <button class="btn-secondary" id="reset-db-btn">Reset Database Records</button>
+            </div>
+        </div>
+
+        <!-- Plain English Suggestions -->
+        <div class="glass-card suggestions">
+            <h3>Try asking or saying:</h3>
+            <div class="suggestion-chips">
+                <div class="suggestion-chip" data-query="Show all customers">"Show all my customers"</div>
+                <div class="suggestion-chip" data-query="Find customers in Hyderabad">"Who are the customers living in Hyderabad?"</div>
+                <div class="suggestion-chip" data-query="Add a new customer named Priya from Chennai">"Add customer Priya from Chennai"</div>
+                <div class="suggestion-chip" data-query="Update customer name to Amit where id is 2">"Change the name of customer 2 to Amit"</div>
+                <div class="suggestion-chip" data-query="Delete customer where id is 1">"Remove customer number 1"</div>
+            </div>
+        </div>
+
+        <!-- Recent Queries Panel (Persisted History) -->
+        <div class="glass-card suggestions" id="recent-queries-card" style="display: none;">
+            <h3>Recent Queries</h3>
+            <div class="suggestion-chips" id="recent-queries-container">
+                <!-- Rendered dynamically -->
+            </div>
+        </div>
+
+        <!-- Query Results Card -->
+        <div class="glass-card results-section" id="results-panel" style="display: none;">
+            <h3>Database Response</h3>
+            
+            <div class="table-container">
+                <table id="results-table">
+                    <thead>
+                        <tr id="table-headers">
+                            <!-- Filled dynamically -->
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Filled dynamically -->
+                    </tbody>
+                </table>
+                <div class="empty-table-state" id="empty-state" style="display: none;">No records found matching your request.</div>
+            </div>
+
+            <!-- Technical details block hidden by default -->
+            <div class="tech-details" id="tech-details-accordion">
+                <div class="tech-summary" id="tech-summary-btn">
+                    <span>Developer Details (Last 5 SQL Queries)</span>
+                    <span id="accordion-arrow">▼</span>
+                </div>
+                <div class="tech-content" id="sql-history-container">
+                    <!-- Contains up to 5 SQL query blocks -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Toast -->
+    <div class="notification" id="toast">
+        <span id="toast-text">Success</span>
+    </div>
+
+    <script>
+        // DOM Elements
+        const micContainer = document.getElementById('mic-container');
+        const micButton = document.getElementById('mic-button');
+        const statusLabel = document.getElementById('status-label');
+        const transcriptDisplay = document.getElementById('transcript-display');
+        const transcriptText = document.getElementById('transcript-text');
+        const resetDbBtn = document.getElementById('reset-db-btn');
+        const resultsPanel = document.getElementById('results-panel');
+        const sqlHistoryContainer = document.getElementById('sql-history-container');
+        const tableHeaders = document.getElementById('table-headers');
+        const tableBody = document.getElementById('table-body');
+        const emptyState = document.getElementById('empty-state');
+        const toast = document.getElementById('toast');
+        const toastText = document.getElementById('toast-text');
+        const suggestionChips = document.querySelectorAll('.suggestion-chip');
+        const techDetails = document.getElementById('tech-details-accordion');
+        const techSummaryBtn = document.getElementById('tech-summary-btn');
+        const accordionArrow = document.getElementById('accordion-arrow');
+        const confirmYesBtn = document.getElementById('confirm-yes-btn');
+        const confirmNoBtn = document.getElementById('confirm-no-btn');
+
+        // Recent Queries state
+        let isListening = false;
+        let recognition = null;
+        let recentQueries = [];
+        let recentSqlQueries = [];
+
+        // Accordion functionality
+        techSummaryBtn.addEventListener('click', () => {
+            const isOpen = techDetails.classList.toggle('open');
+            accordionArrow.innerText = isOpen ? '▲' : '▼';
+        });
+
+        // Speech Recognition Setup
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isListening = true;
+                micContainer.classList.add('listening');
+                statusLabel.innerText = 'Listening... Speak now';
+                statusLabel.classList.add('active');
+                transcriptDisplay.style.display = 'none';
+            };
+
+            recognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                statusLabel.innerText = 'Confirm or edit your request below';
+                statusLabel.classList.remove('active');
+                transcriptText.value = text;
+                transcriptDisplay.style.display = 'block';
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                let errMsg = 'Speech recognition could not understand.';
+                if (event.error === 'not-allowed') {
+                    errMsg = 'Microphone permission blocked.';
+                } else if (event.error === 'no-speech') {
+                    errMsg = 'No speech detected.';
+                }
+                statusLabel.innerText = 'Tap microphone to search';
+                statusLabel.classList.remove('active');
+                showNotification(errMsg, 'error');
+                stopListeningState();
+            };
+
+            recognition.onend = () => {
+                stopListeningState();
+            };
+        } else {
+            statusLabel.innerText = 'Speech recognition not supported';
+            micButton.disabled = true;
+            micButton.style.opacity = '0.5';
+            showNotification('Your browser does not support Speech Recognition. Use Google Chrome or Microsoft Edge.', 'error');
+        }
+
+        function stopListeningState() {
+            isListening = false;
+            micContainer.classList.remove('listening');
+        }
+
+        function toggleListening() {
+            if (!recognition) return;
+            if (isListening) {
+                recognition.stop();
+            } else {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        }
+
+        function showNotification(message, type = 'success') {
+            toastText.innerText = message;
+            toast.className = `notification ${type} show`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 4000);
+        }
+
+        // Recent Queries management
+        function loadRecentQueries() {
+            try {
+                const saved = localStorage.getItem('recent_queries');
+                if (saved) {
+                    recentQueries = JSON.parse(saved);
+                }
+                const savedSql = localStorage.getItem('recent_sql_queries');
+                if (savedSql) {
+                    recentSqlQueries = JSON.parse(savedSql);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+            renderRecentQueries();
+            renderRecentSqlQueries();
+        }
+
+        function updateRecentQueries(query) {
+            recentQueries = recentQueries.filter(q => q !== query);
+            recentQueries.unshift(query);
+            if (recentQueries.length > 5) {
+                recentQueries = recentQueries.slice(0, 5);
+            }
+            try {
+                localStorage.setItem('recent_queries', JSON.stringify(recentQueries));
+            } catch (e) {
+                console.error(e);
+            }
+            renderRecentQueries();
+        }
+
+        function renderRecentQueries() {
+            const card = document.getElementById('recent-queries-card');
+            const container = document.getElementById('recent-queries-container');
+            if (recentQueries.length === 0) {
+                card.style.display = 'none';
+                return;
+            }
+            card.style.display = 'flex';
+            container.innerHTML = '';
+            recentQueries.forEach(query => {
+                const chip = document.createElement('div');
+                chip.className = 'suggestion-chip';
+                chip.innerText = `"${query}"`;
+                chip.addEventListener('click', () => {
+                    transcriptDisplay.style.display = 'none';
+                    submitTextQuery(query);
+                });
+                container.appendChild(chip);
+            });
+        }
+
+        // SQL History management
+        function updateRecentSqlQueries(sql) {
+            recentSqlQueries.unshift(sql);
+            if (recentSqlQueries.length > 5) {
+                recentSqlQueries = recentSqlQueries.slice(0, 5);
+            }
+            try {
+                localStorage.setItem('recent_sql_queries', JSON.stringify(recentSqlQueries));
+            } catch (e) {
+                console.error(e);
+            }
+            renderRecentSqlQueries();
+        }
+
+        function renderRecentSqlQueries() {
+            sqlHistoryContainer.innerHTML = '';
+            
+            if (recentSqlQueries.length === 0) {
+                sqlHistoryContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 0.9rem; font-style: italic; text-align: center; padding: 1.5rem 0;">No queries executed yet.</div>';
+                return;
+            }
+            
+            recentSqlQueries.forEach((sql, idx) => {
+                const queryDiv = document.createElement('div');
+                queryDiv.style.marginBottom = idx === recentSqlQueries.length - 1 ? '0' : '1.25rem';
+                if (idx < recentSqlQueries.length - 1) {
+                    queryDiv.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+                    queryDiv.style.paddingBottom = '1.25rem';
+                }
+                
+                const label = document.createElement('div');
+                label.style.color = idx === 0 ? 'var(--primary)' : 'var(--text-muted)';
+                label.style.fontSize = '0.75rem';
+                label.style.fontWeight = '600';
+                label.style.marginBottom = '0.35rem';
+                label.style.textTransform = 'uppercase';
+                label.style.letterSpacing = '0.05em';
+                label.innerText = idx === 0 ? 'Latest SQL Query' : `Previous Query - ${idx + 1}`;
+                
+                const code = document.createElement('div');
+                code.className = 'sql-code';
+                code.innerText = sql;
+                
+                queryDiv.appendChild(label);
+                queryDiv.appendChild(code);
+                sqlHistoryContainer.appendChild(queryDiv);
+            });
+        }
+
+        async function refreshCustomerTableSilent() {
+            try {
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: 'Show all customers' })
+                });
+                const data = await response.json();
+                if (data.success && data.type === 'select') {
+                    displayResults(data);
+                }
+            } catch (err) {
+                console.error('Error refreshing table:', err);
+            }
+        }
+
+        // POST request query submission
+        async function submitTextQuery(queryText) {
+            statusLabel.innerText = 'Processing database request...';
+            statusLabel.classList.add('active');
+            
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            try {
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ query: queryText })
+                });
+
+                const data = await response.json();
+                statusLabel.innerText = 'Task complete';
+                statusLabel.classList.remove('active');
+
+                if (data.success) {
+                    showNotification('Database updated successfully', 'success');
+                    updateRecentQueries(queryText);
+                    updateRecentSqlQueries(data.sql);
+                    if (data.type === 'select') {
+                        displayResults(data);
+                    } else {
+                        await refreshCustomerTableSilent();
+                    }
+                } else {
+                    showNotification(data.error || 'Request failed.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                statusLabel.innerText = 'Connection error';
+                statusLabel.classList.remove('active');
+                showNotification('Could not connect to database.', 'error');
+            }
+        }
+
+        function displayResults(data) {
+            resultsPanel.style.display = 'flex';
+
+            // Clear UI elements
+            tableHeaders.innerHTML = '';
+            tableBody.innerHTML = '';
+            emptyState.style.display = 'none';
+
+            if (data.type === 'select') {
+                if (data.headers.length === 0 || data.rows.length === 0) {
+                    emptyState.style.display = 'block';
+                    return;
+                }
+
+                // Render Header row
+                data.headers.forEach(header => {
+                    const th = document.createElement('th');
+                    th.innerText = header === 'id' ? 'ID' : header.charAt(0).toUpperCase() + header.slice(1);
+                    tableHeaders.appendChild(th);
+                });
+
+                // Render row content
+                data.rows.forEach(row => {
+                    const tr = document.createElement('tr');
+                    row.forEach(val => {
+                        const td = document.createElement('td');
+                        td.innerText = val !== null ? val : '—';
+                        tr.appendChild(td);
+                    });
+                    tableBody.appendChild(tr);
+                });
+            } else {
+                // Mutations (clean info row)
+                const th = document.createElement('th');
+                th.innerText = 'OPERATION STATUS';
+                tableHeaders.appendChild(th);
+
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.innerText = data.message;
+                tr.appendChild(td);
+                tableBody.appendChild(tr);
+            }
+        }
+
+        // Confirmation actions
+        confirmYesBtn.addEventListener('click', () => {
+            const queryText = transcriptText.value.trim();
+            if (queryText) {
+                submitTextQuery(queryText);
+                transcriptDisplay.style.display = 'none';
+            }
+        });
+
+        confirmNoBtn.addEventListener('click', () => {
+            transcriptDisplay.style.display = 'none';
+            statusLabel.innerText = 'Tap the microphone to ask a question';
+            showNotification('Query cancelled.', 'error');
+        });
+
+        // Event listeners
+        micButton.addEventListener('click', toggleListening);
+
+        resetDbBtn.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to reset the database? This restores default mock records.')) {
+                try {
+                    const res = await fetch('/api/reset', { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        resultsPanel.style.display = 'none';
+                        transcriptDisplay.style.display = 'none';
+                        statusLabel.innerText = 'Tap the microphone to ask a question';
+                        
+                        // Clear histories on reset
+                        recentQueries = [];
+                        recentSqlQueries = [];
+                        localStorage.removeItem('recent_queries');
+                        localStorage.removeItem('recent_sql_queries');
+                        renderRecentQueries();
+                        renderRecentSqlQueries();
+                    } else {
+                        showNotification(data.error, 'error');
+                    }
+                } catch (err) {
+                    showNotification('Error resetting records.', 'error');
+                }
+            }
+        });
+
+        // Chip selection actions (execute immediately since it's clicked intentionally)
+        suggestionChips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                const queryText = chip.getAttribute('data-query');
+                transcriptDisplay.style.display = 'none'; 
+                submitTextQuery(queryText);
+            });
+        });
+
+        // Load saved history on startup
+        loadRecentQueries();
+    </script>
+</body>
+</html>

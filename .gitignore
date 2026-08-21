@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Local databases and histories
+sample.db
+.query_history.json
+
+# Environment variables (sensitive keys)
+.env

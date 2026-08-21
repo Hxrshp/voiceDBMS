@@ -1,0 +1,7 @@
+requests
+speechrecognition
+pyaudio
+pyttsx3
+flask
+flask-cors
+python-dotenv
