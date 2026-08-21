@@ -41,7 +41,13 @@ def fallback_generate_sql(query):
                     
         if table_name:
             columns_part = re.search(r'\b(?:with|having|columns|containing)\s+(.+)$', query)
-            if columns_part:
+            if not columns_part:
+                # Default schemas if no columns are specified in the prompt
+                if table_name in ['orders', 'order']:
+                    return 'CREATE TABLE "orders" ("id" INTEGER PRIMARY KEY, "customer_id" INTEGER, "product" TEXT, "price" REAL);'
+                else:
+                    return f'CREATE TABLE "{table_name}" ("id" INTEGER PRIMARY KEY, "name" TEXT, "city" TEXT);'
+            else:
                 cols_text = columns_part.group(1).strip()
                 cols_list = []
                 for col in cols_text.split(','):
