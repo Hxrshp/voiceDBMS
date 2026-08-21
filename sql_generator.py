@@ -2,6 +2,8 @@ import os
 import re
 import requests
 
+last_api_error = None
+
 def clean_sql(sql):
     sql = sql.strip()
     if sql.startswith("```"):
@@ -221,6 +223,9 @@ Guidelines:
 
 User request: {user_query}"""
 
+    global last_api_error
+    last_api_error = None
+
     # 1. Try Gemini API if key is present
     api_key = os.environ.get("GEMINI_API_KEY")
     if api_key:
@@ -241,8 +246,10 @@ User request: {user_query}"""
                 if sql:
                     return clean_sql(sql)
             else:
+                last_api_error = f"Gemini API error {response.status_code}: {response.text}"
                 print(f"Gemini API returned error {response.status_code}: {response.text}. Falling back...")
         except Exception as e:
+            last_api_error = f"Gemini API exception: {str(e)}"
             print(f"Gemini API failed: {e}. Falling back...")
 
     # 2. Try Local Ollama (llama3)

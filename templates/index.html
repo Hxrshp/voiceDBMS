@@ -620,6 +620,17 @@
                 <div class="empty-table-state" id="empty-state" style="display: none;">No records found matching your request.</div>
             </div>
 
+            <!-- API Error Warning Block -->
+            <div class="api-warning" id="api-warning-block" style="display: none; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 1rem; margin-top: 1rem; color: #fca5a5; font-family: sans-serif;">
+                <div style="font-weight: 700; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>⚠️</span>
+                    <span>API Authentication / Quota Error</span>
+                </div>
+                <div id="api-warning-text" style="font-size: 0.85rem; line-height: 1.4; color: #f87171; word-break: break-all;">
+                    Your Gemini API key returned an error. The application is running in local fallback mode.
+                </div>
+            </div>
+
             <!-- Technical details block hidden by default -->
             <div class="tech-details" id="tech-details-accordion">
                 <div class="tech-summary" id="tech-summary-btn">
@@ -660,6 +671,8 @@
         const accordionArrow = document.getElementById('accordion-arrow');
         const confirmYesBtn = document.getElementById('confirm-yes-btn');
         const confirmNoBtn = document.getElementById('confirm-no-btn');
+        const apiWarningBlock = document.getElementById('api-warning-block');
+        const apiWarningText = document.getElementById('api-warning-text');
 
         // Recent Queries state
         let isListening = false;
@@ -886,6 +899,12 @@
                 statusLabel.classList.remove('active');
 
                 if (data.success) {
+                    if (data.api_error) {
+                        apiWarningBlock.style.display = 'block';
+                        apiWarningText.innerText = data.api_error;
+                    } else {
+                        apiWarningBlock.style.display = 'none';
+                    }
                     showNotification('Database updated successfully', 'success');
                     updateRecentQueries(queryText);
                     updateRecentSqlQueries(data.sql);

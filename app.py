@@ -132,6 +132,11 @@ def process_query():
         result = execute_sql(sql)
         print(f"RESULT: {result}")
         result["sql"] = sql
+        
+        import sql_generator
+        if sql_generator.last_api_error:
+            result["api_error"] = sql_generator.last_api_error
+            
         return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
