@@ -200,7 +200,7 @@ User request: {user_query}"""
     api_key = os.environ.get("GEMINI_API_KEY")
     if api_key:
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={api_key}"
             headers = {"Content-Type": "application/json"}
             payload = {
                 "contents": [{
@@ -215,6 +215,8 @@ User request: {user_query}"""
                 sql = data["candidates"][0]["content"]["parts"][0]["text"]
                 if sql:
                     return clean_sql(sql)
+            else:
+                print(f"Gemini API returned error {response.status_code}: {response.text}. Falling back...")
         except Exception as e:
             print(f"Gemini API failed: {e}. Falling back...")
 
